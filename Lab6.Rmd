@@ -111,3 +111,34 @@ ggplot(df_resultados) +
 ```
 El gráfico muestra la comparación entre los precios reales (rojo) y los predichos por el modelo KNN (azul) para las 12,173 observaciones del conjunto de prueba. Lo más notable es que los puntos azules forman una banda compacta concentrada principalmente entre 100 y 400, lo que revela una limitación característica de KNN con k grande: al promediar 220 vecinos, el modelo tiende a predecir valores cercanos a la media del precio y pierde capacidad para capturar los extremos. Esto se hace evidente al observar que los puntos rojos se dispersan ampliamente hasta los 1,000 por noche, mientras que las predicciones azules raramente superan los 500. En el rango de precios bajos y medios el modelo se comporta razonablemente bien, ya que ambas nubes de puntos se solapan con frecuencia, pero en el segmento de propiedades caras el modelo subestima consistentemente, lo cual es coherente con el RMSE de $130.89 obtenido anteriormente.
 
+# Actividad 2 - Análisis de Resultados
+```{r knn-metricas-c3}
+rmse_knn <- RMSE(pred_knn, test_modelo$price)
+mae_knn  <- MAE(pred_knn,  test_modelo$price)
+r2_knn   <- cor(pred_knn,  test_modelo$price)^2
+
+cat("===== MÉTRICAS – KNN Regresión =====\n")
+cat(sprintf("RMSE : $%.2f\n", rmse_knn))
+cat(sprintf("MAE  : $%.2f\n", mae_knn))
+cat(sprintf("R²   :  %.4f\n", r2_knn))
+```
+Las tres métricas obtenidas permiten evaluar con precisión el desempeño del modelo. El RMSE de 130.89 indica que, en promedio, las predicciones del modelo se desvían aproximadamente 131 del precio real por noche, siendo esta métrica especialmente sensible a los errores grandes, como los que ocurren con propiedades de precio muy alto. El MAE de 90.81 complementa este análisis al mostrar que el error típico sin penalizar los extremos es de casi 91, lo que significa que para propiedades de precio medio el modelo tiene un desempeño más aceptable de lo que sugiere el RMSE. Finalmente, el R² de 0.4141 indica que el modelo explica el 41.41% de la variabilidad del precio, dejando casi el 60% sin explicar. Esto no es sorprendente porque como se trabajó únicamente con 5 variables numéricas, cuando en realidad el precio de una propiedad en Airbnb está influenciado por muchos otros factores como la ubicación exacta, el tipo de propiedad o las amenidades disponibles. En general, el modelo tiene un desempeño moderado, comparable con los algoritmos evaluados en entregas anteriores, y su mayor debilidad está en la predicción de propiedades en los extremos del rango de precios.
+
+```{r knn-residuos-c3}
+residuos <- test_modelo$price - pred_knn
+
+df_residuos <- data.frame(
+  Real    = test_modelo$price,
+  Residuo = residuos
+)
+
+ggplot(df_residuos, aes(x = Real, y = Residuo)) +
+  geom_point(color = "red", size = 1.5, alpha = 0.4) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "blue") +
+  labs(title    = "Valores Reales vs Residuos – KNN Regresión",
+       subtitle = paste0("k = ", k_vecinos),
+       x = "Precio Real (USD/noche)",
+       y = "Residuo (Real − Predicho)") +
+  theme_minimal()
+```
+El gráfico de residuos revela un patrón muy claro y preocupante porque los errores no están distribuidos aleatoriamente alrededor de la línea de cero, sino que forman una banda diagonal que se abre progresivamente hacia la derecha. Esto significa que conforme el precio real de la propiedad aumenta, el modelo tiende a subestimar más y más, generando residuos positivos cada vez mayores. En propiedades con precios bajos, entre 0 y 250, los puntos se concentran cerca de la línea azul con errores relativamente pequeños y bastante negativos, lo que indica que en ese rango el modelo sobreestima ligeramente. A partir de los 500 por noche el patrón se invierte completamente y los residuos se vuelven fuertemente positivos, confirmando que el modelo no logra seguirle el ritmo a las propiedades más caras. Este comportamiento es una consecuencia directa de usar k=220 vecinos, ya que al promediar tantas observaciones el modelo queda anclado cerca de la media general del precio y pierde sensibilidad hacia los extremos. En conclusión, el modelo KNN funciona razonablemente bien para propiedades de precio medio pero falla sistemáticamente con el segmento premium, lo cual es una limitación importante para los objetivos de SmartStay Advisors.
