@@ -230,3 +230,72 @@ ggplot(comparacion_reg,
 
 La comparación entre los cuatro modelos de regresión evaluados bajo las mismas condiciones muestra que KNN con k=220 es el algoritmo que mejor predice el precio por noche de las propiedades, obteniendo el menor RMSE de $130.89, el menor MAE de $90.81 y el mayor R² de 0.4141. Esto significa que KNN logra explicar el 41.41% de la variabilidad del precio, superando a todos los modelos anteriores. En segundo lugar queda la Regresión Lineal con un RMSE de $136.11 y R² de 0.3659, un resultado competitivo considerando su simplicidad. El Árbol de Regresión con profundidad 10 queda en tercer lugar con RMSE de $137.40 y R² de 0.3535, resultado que llama la atención ya que en el Lab 4 superaba a la Regresión Lineal cuando tenía acceso a todas las variables numéricas del dataset, pero al restringirse a las mismas 6 variables pierde esa ventaja. Finalmente, Naive Bayes es claramente el peor regresor con un RMSE de $194.25 y R² de apenas 0.3428, lo cual era esperado dado que fue diseñado para clasificación y no para predicción de valores continuos. En conclusión, KNN es el mejor modelo de regresión hasta el momento para estimar el precio de propiedades en Airbnb bajo estas condiciones, aunque su ventaja sobre la Regresión Lineal es moderada y viene acompañada de un costo computacional considerablemente mayor.
 
+
+## inciso 4. Modelo de Clasificación KNN.
+```{r}
+q33 <- quantile(train_modelo$price, 0.33)
+q66 <- quantile(train_modelo$price, 0.66)
+
+cat("Cortes de categoría:\n")
+cat("Barata  : precio <=", q33, "\n")
+cat("Media   : precio entre", q33, "y", q66, "\n")
+cat("Cara    : precio >", q66, "\n")
+
+
+train_clas <- train_modelo %>%
+  mutate(categoria = case_when(
+    price <= q33 ~ "barata",
+    price <= q66 ~ "media",
+    TRUE         ~ "cara"
+  ) %>% as.factor()) %>%
+  select(-price)
+
+test_clas <- test_modelo %>%
+  mutate(categoria = case_when(
+    price <= q33 ~ "barata",
+    price <= q66 ~ "media",
+    TRUE         ~ "cara"
+  ) %>% as.factor()) %>%
+  select(-price)
+
+cat("\nDistribución en entrenamiento:\n")
+print(table(train_clas$categoria))
+cat("\nDistribución en prueba:\n")
+print(table(test_clas$categoria))
+
+
+k_clas <- round(sqrt(nrow(train_clas)), 0)
+cat("\nValor de k utilizado:", k_clas, "\n")
+
+parametros_clas <- expand.grid(k = k_clas)
+
+modelo_knn_clas <- train(
+  categoria ~ .,
+  data       = train_clas,
+  method     = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid   = parametros_clas
+)
+
+print(modelo_knn_clas)
+```
+Conclusión del Modelo de Clasificación KNN (k=220)
+El modelo de clasificación KNN con k=220 alcanzó un Accuracy de 58.69% y un Kappa de 0.38, lo que representa un desempeño moderado. Dado que hay tres clases aproximadamente balanceadas, un clasificador aleatorio obtendría 33%, por lo que el modelo sí aporta valor predictivo real.
+
+## inciso 5.  Predicción con conjunto de prueba y eficiencia.
+```{r}
+pred_knn_clas <- predict(modelo_knn_clas, newdata = test_clas)
+
+
+accuracy_clas <- mean(pred_knn_clas == test_clas$categoria)
+cat("===== MÉTRICAS – KNN Clasificación (k=220) =====\n")
+cat(sprintf("Accuracy : %.4f (%.2f%%)\n", accuracy_clas, accuracy_clas * 100))
+
+
+library(caret)
+cm <- confusionMatrix(pred_knn_clas, test_clas$categoria)
+print(cm)
+```
+El modelo muestra un desempeño aceptable en los extremos del rango de precios, clasificando correctamente el 71.00% de las propiedades "cara" y el 70.04% de las "barata", con especificidades superiores al 78% en ambos casos.
+
+Sin embargo, la clase "media" representa la mayor debilidad del modelo, con una sensibilidad de apenas 36.99%, lo que significa que menos de 4 de cada 10 propiedades de precio medio son clasificadas correctamente. La mayoría de estos errores corresponden a confusiones con la clase "barata".
