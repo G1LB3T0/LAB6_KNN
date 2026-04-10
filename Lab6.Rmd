@@ -25,7 +25,6 @@ load("datos/listings.RData")
 ```
 
 ```{r preprocesamiento-c1}
-# Preprocesamiento base 
 listings_clean_comp <- listings %>%
   mutate(price = parse_number(price)) %>%
   select(-c(listing_url, scrape_id, picture_url, host_url,
@@ -135,10 +134,10 @@ df_residuos <- data.frame(
 ggplot(df_residuos, aes(x = Real, y = Residuo)) +
   geom_point(color = "red", size = 1.5, alpha = 0.4) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "blue") +
-  labs(title    = "Valores Reales vs Residuos – KNN Regresión",
+  labs(title    = "Valores Reales vs Residuos - KNN Regresión",
        subtitle = paste0("k = ", k_vecinos),
        x = "Precio Real (USD/noche)",
-       y = "Residuo (Real − Predicho)") +
+       y = "Residuo (Real - Predicho)") +
   theme_minimal()
 ```
 El gráfico de residuos revela un patrón muy claro y preocupante porque los errores no están distribuidos aleatoriamente alrededor de la línea de cero, sino que forman una banda diagonal que se abre progresivamente hacia la derecha. Esto significa que conforme el precio real de la propiedad aumenta, el modelo tiende a subestimar más y más, generando residuos positivos cada vez mayores. En propiedades con precios bajos, entre 0 y 250, los puntos se concentran cerca de la línea azul con errores relativamente pequeños y bastante negativos, lo que indica que en ese rango el modelo sobreestima ligeramente. A partir de los 500 por noche el patrón se invierte completamente y los residuos se vuelven fuertemente positivos, confirmando que el modelo no logra seguirle el ritmo a las propiedades más caras. Este comportamiento es una consecuencia directa de usar k=220 vecinos, ya que al promediar tantas observaciones el modelo queda anclado cerca de la media general del precio y pierde sensibilidad hacia los extremos. En conclusión, el modelo KNN funciona razonablemente bien para propiedades de precio medio pero falla sistemáticamente con el segmento premium, lo cual es una limitación importante para los objetivos de SmartStay Advisors.
