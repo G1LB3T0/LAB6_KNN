@@ -61,3 +61,53 @@ test_modelo <- test_comp %>%
 cat("Filas entrenamiento:", nrow(train_modelo), "\n")
 cat("Filas prueba:       ", nrow(test_modelo),  "\n")
 ```
+
+# Actividad 1 - Modelo de Regresión usando KNN
+```{r knn-modelo-c2}
+# k inicial = raíz cuadrada de n (criterio estándar para KNN)
+k_vecinos <- round(sqrt(nrow(train_modelo)), 0)
+cat("Valor de k utilizado:", k_vecinos, "\n")
+
+parametros <- expand.grid(k = k_vecinos)
+
+modelo_knn <- train(
+  price ~ .,
+  data       = train_modelo,
+  method     = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid   = parametros
+)
+
+print(modelo_knn)
+```
+Para el modelo de regresión con KNN se utilizó como punto de partida el criterio estándar de selección de k, tomando la raíz cuadrada del número de observaciones del conjunto de entrenamiento, lo que resultó en k=220 vecinos. El modelo fue entrenado con las 48,442 observaciones disponibles y las 5 variables predictoras: accommodates, bedrooms, bathrooms, number_of_reviews y review_scores_rating, aplicando normalización mediante centrado y escalado para garantizar que ninguna variable domine el cálculo de distancias por tener una escala mayor. Los resultados muestran un RMSE de 130.78, un R² de 0.4069 y un MAE de 91.13, lo que indica que en promedio el modelo se equivoca en aproximadamente 91 por noche al predecir el precio de una propiedad. El R² de 0.41 significa que el modelo logra explicar el 41% de la variabilidad del precio, un resultado moderado que es consistente con los modelos anteriores y refleja que el precio de una propiedad en Airbnb depende también de factores que no están capturados en estas variables numéricas, como el tipo de propiedad, la ubicación específica o las amenidades
+
+```{r knn-prediccion-c2}
+pred_knn <- predict(modelo_knn, newdata = test_modelo)
+
+cat("RMSE:", round(RMSE(pred_knn, test_modelo$price), 2), "\n")
+```
+El RMSE obtenido al predecir sobre el conjunto de prueba fue de 130.89, valor prácticamente idéntico al RMSE de entrenamiento (130.78), lo cual es una señal positiva ya que indica que el modelo generaliza bien y no está sobreajustado a los datos con los que fue entrenado. En otras palabras, el modelo se comporta de manera consistente tanto con datos conocidos como con datos nuevos, que es exactamente lo que se busca en un modelo predictivo confiable.
+
+```{r knn-grafico-c2}
+df_resultados <- data.frame(
+  Indice   = 1:length(test_modelo$price),
+  Real     = test_modelo$price,
+  Predicho = pred_knn
+)
+
+ggplot(df_resultados) +
+  geom_point(aes(x = Indice, y = Real,     color = "Real"),
+             size = 1, alpha = 0.5) +
+  geom_point(aes(x = Indice, y = Predicho, color = "Predicho"),
+             size = 1, alpha = 0.5) +
+  scale_color_manual(values = c("Real" = "red", "Predicho" = "blue")) +
+  labs(title    = "KNN Regresión: Valores Reales vs Predichos",
+       subtitle = paste0("k = ", k_vecinos),
+       x = "Índice de Observación",
+       y = "Precio por Noche (USD)",
+       color = "Serie") +
+  theme_minimal()
+```
+El gráfico muestra la comparación entre los precios reales (rojo) y los predichos por el modelo KNN (azul) para las 12,173 observaciones del conjunto de prueba. Lo más notable es que los puntos azules forman una banda compacta concentrada principalmente entre 100 y 400, lo que revela una limitación característica de KNN con k grande: al promediar 220 vecinos, el modelo tiende a predecir valores cercanos a la media del precio y pierde capacidad para capturar los extremos. Esto se hace evidente al observar que los puntos rojos se dispersan ampliamente hasta los 1,000 por noche, mientras que las predicciones azules raramente superan los 500. En el rango de precios bajos y medios el modelo se comporta razonablemente bien, ya que ambas nubes de puntos se solapan con frecuencia, pero en el segmento de propiedades caras el modelo subestima consistentemente, lo cual es coherente con el RMSE de $130.89 obtenido anteriormente.
+
