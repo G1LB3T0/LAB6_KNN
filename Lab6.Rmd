@@ -142,3 +142,91 @@ ggplot(df_residuos, aes(x = Real, y = Residuo)) +
   theme_minimal()
 ```
 El gráfico de residuos revela un patrón muy claro y preocupante porque los errores no están distribuidos aleatoriamente alrededor de la línea de cero, sino que forman una banda diagonal que se abre progresivamente hacia la derecha. Esto significa que conforme el precio real de la propiedad aumenta, el modelo tiende a subestimar más y más, generando residuos positivos cada vez mayores. En propiedades con precios bajos, entre 0 y 250, los puntos se concentran cerca de la línea azul con errores relativamente pequeños y bastante negativos, lo que indica que en ese rango el modelo sobreestima ligeramente. A partir de los 500 por noche el patrón se invierte completamente y los residuos se vuelven fuertemente positivos, confirmando que el modelo no logra seguirle el ritmo a las propiedades más caras. Este comportamiento es una consecuencia directa de usar k=220 vecinos, ya que al promediar tantas observaciones el modelo queda anclado cerca de la media general del precio y pierde sensibilidad hacia los extremos. En conclusión, el modelo KNN funciona razonablemente bien para propiedades de precio medio pero falla sistemáticamente con el segmento premium, lo cual es una limitación importante para los objetivos de SmartStay Advisors.
+
+## Inciso 3 - Comparacion
+```{r comparacion-modelos-c4}
+# Re-entrenar modelos anteriores con las MISMAS condiciones
+# set.seed(123), 80/20, mismas 6 variables
+
+# Regresión Lineal (Lab 3)
+modelo_lineal <- lm(price ~ ., data = train_modelo)
+pred_lineal   <- pmax(predict(modelo_lineal, newdata = test_modelo), 0)
+rmse_lineal   <- RMSE(pred_lineal, test_modelo$price)
+mae_lineal    <- MAE(pred_lineal,  test_modelo$price)
+r2_lineal     <- cor(pred_lineal,  test_modelo$price)^2
+
+# Árbol de Regresión profundidad 10 (mejor modelo Lab 4)
+library(rpart)
+arbol_comp <- rpart(price ~ ., data = train_modelo, method = "anova",
+                    control = rpart.control(maxdepth = 10))
+pred_arbol <- predict(arbol_comp, newdata = test_modelo)
+rmse_arbol <- RMSE(pred_arbol, test_modelo$price)
+mae_arbol  <- MAE(pred_arbol,  test_modelo$price)
+r2_arbol   <- cor(pred_arbol,  test_modelo$price)^2
+
+# Naive Bayes (Lab 5)
+library(e1071)
+discretizar <- function(df) {
+  df %>% mutate(
+    accommodates_d = cut(accommodates, c(0,2,4,6,Inf),
+                         labels=c("1-2","3-4","5-6","7+")),
+    bedrooms_d     = cut(bedrooms,     c(0,1,2,3,Inf),
+                         labels=c("1","2","3","4+")),
+    bathrooms_d    = cut(bathrooms,    c(0,1,2,3,Inf),
+                         labels=c("1","2","3","4+")),
+    reviews_d      = cut(number_of_reviews, c(-1,0,10,50,Inf),
+                         labels=c("0","1-10","11-50","50+")),
+    rating_d       = cut(review_scores_rating, c(0,60,80,90,100),
+                         labels=c("bajo","medio","alto","excelente"))
+  )
+}
+
+train_nb <- discretizar(train_modelo)
+test_nb  <- discretizar(test_modelo)
+price_breaks <- quantile(train_nb$price, probs = seq(0,1,by=0.05))
+train_nb$price_bin <- cut(train_nb$price, breaks=price_breaks,
+                          include.lowest=TRUE, labels=FALSE)
+bin_midpoints <- sapply(1:(length(price_breaks)-1), function(i)
+  (price_breaks[i]+price_breaks[i+1])/2)
+features_nb <- c("accommodates_d","bedrooms_d","bathrooms_d",
+                 "reviews_d","rating_d")
+nb_comp     <- naiveBayes(x=train_nb[,features_nb],
+                           y=as.factor(train_nb$price_bin))
+pred_bin_nb <- predict(nb_comp, newdata=test_nb[,features_nb])
+pred_bin_num <- pmin(pmax(as.numeric(as.character(pred_bin_nb)),1),
+                     length(bin_midpoints))
+pred_nb      <- bin_midpoints[pred_bin_num]
+rmse_nb      <- sqrt(mean((test_modelo$price - pred_nb)^2, na.rm=TRUE))
+mae_nb       <- mean(abs(test_modelo$price - pred_nb), na.rm=TRUE)
+r2_nb        <- cor(test_modelo$price, pred_nb, use="complete.obs")^2
+```
+
+```{r comparacion-tabla-c4}
+comparacion_reg <- data.frame(
+  Modelo = c("Regresión Lineal", 
+             "Árbol Regresión (prof.10)",
+             "Naive Bayes",
+             "KNN (k=220)"),
+  RMSE   = round(c(rmse_lineal, rmse_arbol, rmse_nb, rmse_knn), 2),
+  MAE    = round(c(mae_lineal,  mae_arbol,  mae_nb,  mae_knn),  2),
+  R2     = round(c(r2_lineal,   r2_arbol,   r2_nb,   r2_knn),   4)
+)
+
+print(comparacion_reg)
+```
+
+```{r comparacion-grafico-c4}
+ggplot(comparacion_reg, 
+       aes(x = reorder(Modelo, RMSE), y = RMSE, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = paste0("$", RMSE)), 
+            hjust = -0.1, fontface = "bold") +
+  coord_flip() +
+  labs(title    = "Comparación de RMSE – Modelos de Regresión",
+       subtitle = "Menor RMSE = mejor predicción del precio",
+       x = NULL, y = "RMSE (USD)") +
+  theme_minimal()
+```
+
+La comparación entre los cuatro modelos de regresión evaluados bajo las mismas condiciones muestra que KNN con k=220 es el algoritmo que mejor predice el precio por noche de las propiedades, obteniendo el menor RMSE de $130.89, el menor MAE de $90.81 y el mayor R² de 0.4141. Esto significa que KNN logra explicar el 41.41% de la variabilidad del precio, superando a todos los modelos anteriores. En segundo lugar queda la Regresión Lineal con un RMSE de $136.11 y R² de 0.3659, un resultado competitivo considerando su simplicidad. El Árbol de Regresión con profundidad 10 queda en tercer lugar con RMSE de $137.40 y R² de 0.3535, resultado que llama la atención ya que en el Lab 4 superaba a la Regresión Lineal cuando tenía acceso a todas las variables numéricas del dataset, pero al restringirse a las mismas 6 variables pierde esa ventaja. Finalmente, Naive Bayes es claramente el peor regresor con un RMSE de $194.25 y R² de apenas 0.3428, lo cual era esperado dado que fue diseñado para clasificación y no para predicción de valores continuos. En conclusión, KNN es el mejor modelo de regresión hasta el momento para estimar el precio de propiedades en Airbnb bajo estas condiciones, aunque su ventaja sobre la Regresión Lineal es moderada y viene acompañada de un costo computacional considerablemente mayor.
+
