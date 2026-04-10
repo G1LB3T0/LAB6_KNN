@@ -1,0 +1,63 @@
+---
+title: "Lab6"
+author: "Joel Jaquez, Luis Gonzalez, Fabian Morales"
+date: "2026-04-10"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preprocesamiento de datos para KNN de Regresión
+
+```{r librerias-c1}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(caret)
+library(ggplot2)
+library(class)
+```
+
+```{r carga-datos-c1}
+load("datos/listings.RData")
+```
+
+```{r preprocesamiento-c1}
+# Preprocesamiento base 
+listings_clean_comp <- listings %>%
+  mutate(price = parse_number(price)) %>%
+  select(-c(listing_url, scrape_id, picture_url, host_url,
+            host_thumbnail_url, host_picture_url, description,
+            neighborhood_overview, host_about, amenities))
+
+# Seed y split 80/20 
+set.seed(123)
+total_filas  <- nrow(listings_clean_comp)
+indice_train <- sample(1:total_filas, size = 0.8 * total_filas)
+train_comp   <- listings_clean_comp[ indice_train, ]
+test_comp    <- listings_clean_comp[-indice_train, ]
+
+# filtros y variables 
+# price, accommodates, bedrooms, bathrooms,
+# number_of_reviews, review_scores_rating
+train_modelo <- train_comp %>%
+  filter(!is.na(price), price < 1000,
+         !is.na(bedrooms), bedrooms <= 10,
+         !is.na(bathrooms), !is.na(accommodates)) %>%
+  select(price, accommodates, bedrooms, bathrooms,
+         number_of_reviews, review_scores_rating) %>%
+  drop_na()
+
+test_modelo <- test_comp %>%
+  filter(!is.na(price), price < 1000,
+         !is.na(bedrooms), bedrooms <= 10,
+         !is.na(bathrooms), !is.na(accommodates)) %>%
+  select(price, accommodates, bedrooms, bathrooms,
+         number_of_reviews, review_scores_rating) %>%
+  drop_na()
+
+cat("Filas entrenamiento:", nrow(train_modelo), "\n")
+cat("Filas prueba:       ", nrow(test_modelo),  "\n")
+```
