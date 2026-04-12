@@ -62,6 +62,7 @@ cat("Filas prueba:       ", nrow(test_modelo),  "\n")
 ```
 
 # Actividad 1 - Modelo de Regresión usando KNN
+
 ```{r knn-modelo-c2}
 # k inicial = raíz cuadrada de n (criterio estándar para KNN)
 k_vecinos <- round(sqrt(nrow(train_modelo)), 0)
@@ -79,6 +80,7 @@ modelo_knn <- train(
 
 print(modelo_knn)
 ```
+
 Para el modelo de regresión con KNN se utilizó como punto de partida el criterio estándar de selección de k, tomando la raíz cuadrada del número de observaciones del conjunto de entrenamiento, lo que resultó en k=220 vecinos. El modelo fue entrenado con las 48,442 observaciones disponibles y las 5 variables predictoras: accommodates, bedrooms, bathrooms, number_of_reviews y review_scores_rating, aplicando normalización mediante centrado y escalado para garantizar que ninguna variable domine el cálculo de distancias por tener una escala mayor. Los resultados muestran un RMSE de 130.78, un R² de 0.4069 y un MAE de 91.13, lo que indica que en promedio el modelo se equivoca en aproximadamente 91 por noche al predecir el precio de una propiedad. El R² de 0.41 significa que el modelo logra explicar el 41% de la variabilidad del precio, un resultado moderado que es consistente con los modelos anteriores y refleja que el precio de una propiedad en Airbnb depende también de factores que no están capturados en estas variables numéricas, como el tipo de propiedad, la ubicación específica o las amenidades
 
 ```{r knn-prediccion-c2}
@@ -86,6 +88,7 @@ pred_knn <- predict(modelo_knn, newdata = test_modelo)
 
 cat("RMSE:", round(RMSE(pred_knn, test_modelo$price), 2), "\n")
 ```
+
 El RMSE obtenido al predecir sobre el conjunto de prueba fue de 130.89, valor prácticamente idéntico al RMSE de entrenamiento (130.78), lo cual es una señal positiva ya que indica que el modelo generaliza bien y no está sobreajustado a los datos con los que fue entrenado. En otras palabras, el modelo se comporta de manera consistente tanto con datos conocidos como con datos nuevos, que es exactamente lo que se busca en un modelo predictivo confiable.
 
 ```{r knn-grafico-c2}
@@ -108,9 +111,11 @@ ggplot(df_resultados) +
        color = "Serie") +
   theme_minimal()
 ```
-El gráfico muestra la comparación entre los precios reales (rojo) y los predichos por el modelo KNN (azul) para las 12,173 observaciones del conjunto de prueba. Lo más notable es que los puntos azules forman una banda compacta concentrada principalmente entre 100 y 400, lo que revela una limitación característica de KNN con k grande: al promediar 220 vecinos, el modelo tiende a predecir valores cercanos a la media del precio y pierde capacidad para capturar los extremos. Esto se hace evidente al observar que los puntos rojos se dispersan ampliamente hasta los 1,000 por noche, mientras que las predicciones azules raramente superan los 500. En el rango de precios bajos y medios el modelo se comporta razonablemente bien, ya que ambas nubes de puntos se solapan con frecuencia, pero en el segmento de propiedades caras el modelo subestima consistentemente, lo cual es coherente con el RMSE de $130.89 obtenido anteriormente.
+
+El gráfico muestra la comparación entre los precios reales (rojo) y los predichos por el modelo KNN (azul) para las 12,173 observaciones del conjunto de prueba. Lo más notable es que los puntos azules forman una banda compacta concentrada principalmente entre 100 y 400, lo que revela una limitación característica de KNN con k grande: al promediar 220 vecinos, el modelo tiende a predecir valores cercanos a la media del precio y pierde capacidad para capturar los extremos. Esto se hace evidente al observar que los puntos rojos se dispersan ampliamente hasta los 1,000 por noche, mientras que las predicciones azules raramente superan los 500. En el rango de precios bajos y medios el modelo se comporta razonablemente bien, ya que ambas nubes de puntos se solapan con frecuencia, pero en el segmento de propiedades caras el modelo subestima consistentemente, lo cual es coherente con el RMSE de \$130.89 obtenido anteriormente.
 
 # Actividad 2 - Análisis de Resultados
+
 ```{r knn-metricas-c3}
 rmse_knn <- RMSE(pred_knn, test_modelo$price)
 mae_knn  <- MAE(pred_knn,  test_modelo$price)
@@ -121,6 +126,7 @@ cat(sprintf("RMSE : $%.2f\n", rmse_knn))
 cat(sprintf("MAE  : $%.2f\n", mae_knn))
 cat(sprintf("R²   :  %.4f\n", r2_knn))
 ```
+
 Las tres métricas obtenidas permiten evaluar con precisión el desempeño del modelo. El RMSE de 130.89 indica que, en promedio, las predicciones del modelo se desvían aproximadamente 131 del precio real por noche, siendo esta métrica especialmente sensible a los errores grandes, como los que ocurren con propiedades de precio muy alto. El MAE de 90.81 complementa este análisis al mostrar que el error típico sin penalizar los extremos es de casi 91, lo que significa que para propiedades de precio medio el modelo tiene un desempeño más aceptable de lo que sugiere el RMSE. Finalmente, el R² de 0.4141 indica que el modelo explica el 41.41% de la variabilidad del precio, dejando casi el 60% sin explicar. Esto no es sorprendente porque como se trabajó únicamente con 5 variables numéricas, cuando en realidad el precio de una propiedad en Airbnb está influenciado por muchos otros factores como la ubicación exacta, el tipo de propiedad o las amenidades disponibles. En general, el modelo tiene un desempeño moderado, comparable con los algoritmos evaluados en entregas anteriores, y su mayor debilidad está en la predicción de propiedades en los extremos del rango de precios.
 
 ```{r knn-residuos-c3}
@@ -140,9 +146,11 @@ ggplot(df_residuos, aes(x = Real, y = Residuo)) +
        y = "Residuo (Real - Predicho)") +
   theme_minimal()
 ```
+
 El gráfico de residuos revela un patrón muy claro y preocupante porque los errores no están distribuidos aleatoriamente alrededor de la línea de cero, sino que forman una banda diagonal que se abre progresivamente hacia la derecha. Esto significa que conforme el precio real de la propiedad aumenta, el modelo tiende a subestimar más y más, generando residuos positivos cada vez mayores. En propiedades con precios bajos, entre 0 y 250, los puntos se concentran cerca de la línea azul con errores relativamente pequeños y bastante negativos, lo que indica que en ese rango el modelo sobreestima ligeramente. A partir de los 500 por noche el patrón se invierte completamente y los residuos se vuelven fuertemente positivos, confirmando que el modelo no logra seguirle el ritmo a las propiedades más caras. Este comportamiento es una consecuencia directa de usar k=220 vecinos, ya que al promediar tantas observaciones el modelo queda anclado cerca de la media general del precio y pierde sensibilidad hacia los extremos. En conclusión, el modelo KNN funciona razonablemente bien para propiedades de precio medio pero falla sistemáticamente con el segmento premium, lo cual es una limitación importante para los objetivos de SmartStay Advisors.
 
-## Inciso 3 - Comparacion
+## Actividad 3 - Comparacion
+
 ```{r comparacion-modelos-c4}
 # Re-entrenar modelos anteriores con las MISMAS condiciones
 # set.seed(123), 80/20, mismas 6 variables
@@ -227,13 +235,16 @@ ggplot(comparacion_reg,
   theme_minimal()
 ```
 
-La comparación entre los cuatro modelos de regresión evaluados bajo las mismas condiciones muestra que KNN con k=220 es el algoritmo que mejor predice el precio por noche de las propiedades, obteniendo el menor RMSE de $130.89, el menor MAE de $90.81 y el mayor R² de 0.4141. Esto significa que KNN logra explicar el 41.41% de la variabilidad del precio, superando a todos los modelos anteriores. En segundo lugar queda la Regresión Lineal con un RMSE de $136.11 y R² de 0.3659, un resultado competitivo considerando su simplicidad. El Árbol de Regresión con profundidad 10 queda en tercer lugar con RMSE de $137.40 y R² de 0.3535, resultado que llama la atención ya que en el Lab 4 superaba a la Regresión Lineal cuando tenía acceso a todas las variables numéricas del dataset, pero al restringirse a las mismas 6 variables pierde esa ventaja. Finalmente, Naive Bayes es claramente el peor regresor con un RMSE de $194.25 y R² de apenas 0.3428, lo cual era esperado dado que fue diseñado para clasificación y no para predicción de valores continuos. En conclusión, KNN es el mejor modelo de regresión hasta el momento para estimar el precio de propiedades en Airbnb bajo estas condiciones, aunque su ventaja sobre la Regresión Lineal es moderada y viene acompañada de un costo computacional considerablemente mayor.
+La comparación entre los cuatro modelos de regresión evaluados bajo las mismas condiciones muestra que KNN con k=220 es el algoritmo que mejor predice el precio por noche de las propiedades, obteniendo el menor RMSE de \$130.89, el menor MAE de \$90.81 y el mayor R² de 0.4141. Esto significa que KNN logra explicar el 41.41% de la variabilidad del precio, superando a todos los modelos anteriores. En segundo lugar queda la Regresión Lineal con un RMSE de \$136.11 y R² de 0.3659, un resultado competitivo considerando su simplicidad. El Árbol de Regresión con profundidad 10 queda en tercer lugar con RMSE de \$137.40 y R² de 0.3535, resultado que llama la atención ya que en el Lab 4 superaba a la Regresión Lineal cuando tenía acceso a todas las variables numéricas del dataset, pero al restringirse a las mismas 6 variables pierde esa ventaja. Finalmente, Naive Bayes es claramente el peor regresor con un RMSE de \$194.25 y R² de apenas 0.3428, lo cual era esperado dado que fue diseñado para clasificación y no para predicción de valores continuos. En conclusión, KNN es el mejor modelo de regresión hasta el momento para estimar el precio de propiedades en Airbnb bajo estas condiciones, aunque su ventaja sobre la Regresión Lineal es moderada y viene acompañada de un costo computacional considerablemente mayor.
 
+# Actividad 4 - Modelo de Clasificación KNN.
 
-## inciso 4. Modelo de Clasificación KNN.
 ```{r}
-q33 <- quantile(train_modelo$price, 0.33)
-q66 <- quantile(train_modelo$price, 0.66)
+precios_validos <- listings_clean_comp %>%
+  filter(!is.na(price), price > 0, price < 1000) %>%
+  pull(price)
+q33 <- quantile(precios_validos, 0.33)
+q66 <- quantile(precios_validos, 0.67)  # 0.67 no 0.66, igual que Lab 4
 
 cat("Cortes de categoría:\n")
 cat("Barata  : precio <=", q33, "\n")
@@ -278,10 +289,11 @@ modelo_knn_clas <- train(
 
 print(modelo_knn_clas)
 ```
-Conclusión del Modelo de Clasificación KNN (k=220)
-El modelo de clasificación KNN con k=220 alcanzó un Accuracy de 58.69% y un Kappa de 0.38, lo que representa un desempeño moderado. Dado que hay tres clases aproximadamente balanceadas, un clasificador aleatorio obtendría 33%, por lo que el modelo sí aporta valor predictivo real.
 
-## inciso 5.  Predicción con conjunto de prueba y eficiencia.
+Conclusión del Modelo de Clasificación KNN (k=220) El modelo de clasificación KNN con k=220 alcanzó un Accuracy de 58.69% y un Kappa de 0.38, lo que representa un desempeño moderado. Dado que hay tres clases aproximadamente balanceadas, un clasificador aleatorio obtendría 33%, por lo que el modelo sí aporta valor predictivo real.
+
+# Actividad 5 - Predicción con conjunto de prueba y eficiencia.
+
 ```{r}
 pred_knn_clas <- predict(modelo_knn_clas, newdata = test_clas)
 
@@ -295,6 +307,7 @@ library(caret)
 cm <- confusionMatrix(pred_knn_clas, test_clas$categoria)
 print(cm)
 ```
+
 El modelo muestra un desempeño aceptable en los extremos del rango de precios, clasificando correctamente el 71.00% de las propiedades "cara" y el 70.04% de las "barata", con especificidades superiores al 78% en ambos casos.
 
 Sin embargo, la clase "media" representa la mayor debilidad del modelo, con una sensibilidad de apenas 36.99%, lo que significa que menos de 4 de cada 10 propiedades de precio medio son clasificadas correctamente. La mayoría de estos errores corresponden a confusiones con la clase "barata".
