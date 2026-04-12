@@ -311,3 +311,85 @@ print(cm)
 El modelo muestra un desempeño aceptable en los extremos del rango de precios, clasificando correctamente el 71.00% de las propiedades "cara" y el 70.04% de las "barata", con especificidades superiores al 78% en ambos casos.
 
 Sin embargo, la clase "media" representa la mayor debilidad del modelo, con una sensibilidad de apenas 36.99%, lo que significa que menos de 4 de cada 10 propiedades de precio medio son clasificadas correctamente. La mayoría de estos errores corresponden a confusiones con la clase "barata".
+
+
+# Actividad 6 - Matriz de Confusión
+```{r knn-confusion-c6}
+# Visualización de la matriz de confusión
+as.data.frame(cm$table) %>%
+  ggplot(aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), fontface = "bold", size = 6) +
+  scale_fill_gradient(low = "#E3F2FD", high = "#1565C0") +
+  labs(title    = "Matriz de Confusión – KNN Clasificación",
+       subtitle = "Filas = predicción | Columnas = valor real",
+       x = "Categoría real", y = "Categoría predicha") +
+  theme_minimal()
+```
+La matriz de confusión deja ver con claridad dónde el modelo acierta y dónde falla. La diagonal principal muestra los aciertos: 2,810 propiedades baratas, 2,921 caras y 1,496 medias clasificadas correctamente. Sin embargo, los números fuera de la diagonal cuentan algo muy distinto dependiendo de la categoría, por ejemplo en la clase donde el modelo se equivoca menos es cara, con apenas 1,196 errores sobre 4,117 propiedades reales, lo que representa una tasa de error del 29.05%. Le sigue muy de cerca barata con 1,202 errores y una tasa del 29.96%, lo que indica que ambos extremos del mercado son razonablemente identificables para el modelo. La categoría donde el algoritmo falla más es media, con 2,548 errores sobre 4,044 propiedades reales, una tasa de error cercana al 63%, lo cual significa que el modelo clasifica incorrectamente casi 2 de cada 3 propiedades de precio medio, confundiéndolas principalmente con baratas (1,303 casos) y caras (1,245 casos). Desde la perspectiva de SmartStay Advisors, el error más grave es clasificar 435 propiedades caras como baratas, ya que implicaría recomendar al cliente una propiedad muy por encima de su presupuesto, afectando directamente la confianza en el servicio. En contraste, confundir propiedades medias con cualquiera de los otros dos segmentos es menos crítico económicamente, aunque sigue siendo una limitación importante del modelo.
+
+```{r knn-errores-c6}
+# Tasa de error por clase
+errores_knn <- data.frame(
+  Clase = c("Barata", "Cara", "Media"),
+  Correctos = c(cm$table[1,1], cm$table[2,2], cm$table[3,3]),
+  Errores_total = c(
+    sum(cm$table[1,]) - cm$table[1,1],
+    sum(cm$table[2,]) - cm$table[2,2],
+    sum(cm$table[3,]) - cm$table[3,3]
+  )
+)
+
+errores_knn$Tasa_error <- round(
+  errores_knn$Errores_total /
+  (errores_knn$Correctos + errores_knn$Errores_total) * 100, 2)
+
+print(errores_knn)
+
+ggplot(errores_knn, aes(x = Clase, y = Tasa_error, fill = Clase)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = paste0(Tasa_error, "%")),
+            vjust = -0.5, fontface = "bold") +
+  scale_fill_manual(values = c("Barata" = "#4CAF50",
+                               "Cara"   = "#FF9800",
+                               "Media"  = "#F44336")) +
+  labs(title = "Tasa de error por categoría – KNN Clasificación",
+       x = "Categoría", y = "% de errores") +
+  theme_minimal()
+```
+El gráfico de tasas de error confirma y cuantifica lo observado en la matriz de confusión. La categoría donde el modelo se equivoca menos es cara con un 35.12% de error, lo que tiene sentido ya que las propiedades de precio alto tienden a tener características más distintivas y fáciles de identificar para el algoritmo. Le sigue barata con un 38.21%, un resultado similar que refleja que los extremos del mercado son más reconocibles. La categoría media es claramente el problema del modelo con una tasa de error del 52.1%, es decir, el algoritmo falla en más de la mitad de las propiedades de precio intermedio. Esto es un patrón esperado y consistente con lo visto en los modelos de clasificación de laboratorios anteriores, donde la categoría media siempre fue la más difícil de clasificar correctamente porque sus características se solapan con las de los otros dos segmentos. Una propiedad de precio medio puede tener la capacidad de una barata pero los baños de una cara, o viceversa, lo que hace que KNN, al basarse en distancias, no logre separar con claridad esta zona del mercado. En conclusión, el modelo es más confiable para identificar los extremos del mercado que para el segmento intermedio, lo cual es una limitación relevante para SmartStay Advisors al momento de clasificar propiedades en ese rango de precios.
+
+# Actividad 7 - ¿Modelo sobreajustado?
+```{r knn-overfit-c7}
+# Predecir sobre el conjunto de ENTRENAMIENTO para comparar
+pred_train_clas <- predict(modelo_knn_clas, newdata = train_clas)
+
+cm_train <- confusionMatrix(pred_train_clas, train_clas$categoria)
+
+# Comparar accuracy train vs test
+acc_train   <- round(cm_train$overall["Accuracy"] * 100, 2)
+acc_test    <- round(cm$overall["Accuracy"]        * 100, 2)
+kappa_train <- round(cm_train$overall["Kappa"], 4)
+kappa_test  <- round(cm$overall["Kappa"],       4)
+
+comparacion_ov <- data.frame(
+  Conjunto = c("Entrenamiento", "Prueba"),
+  Accuracy = c(acc_train, acc_test),
+  Kappa    = c(kappa_train, kappa_test)
+)
+
+print(comparacion_ov)
+
+ggplot(comparacion_ov, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
+  geom_col(show.legend = FALSE, width = 0.5) +
+  geom_text(aes(label = paste0(Accuracy, "%")),
+            vjust = -0.5, fontface = "bold", size = 5) +
+  scale_fill_manual(values = c("Entrenamiento" = "#2196F3",
+                               "Prueba"        = "#FF9800")) +
+  labs(title    = "Accuracy – Entrenamiento vs Prueba",
+       subtitle = "KNN Clasificación",
+       x = NULL, y = "Accuracy (%)") +
+  ylim(0, 100) +
+  theme_minimal()
+```
+El análisis de sobreajuste muestra un resultado muy claro y es que el modelo no está sobreajustado. El Accuracy en entrenamiento es de 59.18% y en prueba de 59.37%, una diferencia de apenas 0.19 puntos porcentuales que es prácticamente insignificante. En un modelo sobreajustado se esperaría ver un Accuracy muy alto en entrenamiento, por ejemplo 90% o más, y uno considerablemente menor en prueba, porque el modelo habría memorizado los datos de entrenamiento sin aprender a generalizar. Aquí ocurre exactamente lo contrario ya que ambos valores son casi idénticos y además el conjunto de prueba tiene un Accuracy ligeramente mayor que el de entrenamiento, lo cual es una señal de que el modelo generaliza de forma estable y consistente. Esto tiene sentido considerando que se usó k=220 vecinos, un valor bastante alto que obliga al modelo a promediar muchas observaciones antes de tomar una decisión, lo que actúa como un regularizador natural que evita que el modelo se ajuste demasiado a los datos de entrenamiento. Lo que sí se puede observar es que el rendimiento general de 59% en ambos conjuntos es modesto, lo que sugiere que el modelo no está sobreajustado sino que simplemente tiene una capacidad limitada para separar las tres categorías de precio con las variables disponibles.
