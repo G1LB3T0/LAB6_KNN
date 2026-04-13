@@ -11,6 +11,10 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+<!-- # LINK DE GITHUB : https://github.com/G1LB3T0/LAB6_KNN/ -->
+
+
 # Preprocesamiento de datos para KNN de Regresión
 
 ```{r librerias-c1}
