@@ -1,8 +1,10 @@
 ---
-title: "Lab6"
+title: "Laboratorio 6 - K Nearest Neighbors (KNN)"
 author: "Joel Jaquez, Luis Gonzalez, Fabian Morales"
 date: "2026-04-10"
-output: pdf_document
+output:
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
@@ -577,4 +579,44 @@ ggplot(comparacion_tuneo_reg,
        x = NULL, y = "RMSE (USD)") +
   theme_minimal()
 ```
-El tuneo de hiperparámetros sí logró una mejora, aunque modesta. El modelo tuneado con k=100 obtiene un RMSE de 130.46, ligeramente inferior al 130.89 de los modelos original y con validación cruazada. 
+El tuneo de hiperparámetros sí logró una mejora, aunque modesta. El modelo tuneado con k=100 obtiene un RMSE de 130.46, ligeramente inferior al 130.89 de los modelos original y con validación cruazada.
+
+## Actividad 10: Comparacion de modelos
+
+```{r comparacion-clasificacion-c10}
+# Comparación de todos los modelos de clasificación
+comparacion_clas <- data.frame(
+  Modelo   = c("Naive Bayes", "KNN (k=220)", 
+               "Árbol de Decisión", "Random Forest"),
+  Accuracy = c(42.26, 59.37, 69.24, 84.46),
+  Kappa    = c(0.1184, 0.3904, 0.5380, 0.7664)
+)
+
+print(comparacion_clas)
+
+# Gráfico de Accuracy
+ggplot(comparacion_clas, 
+       aes(x = reorder(Modelo, Accuracy), y = Accuracy, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = paste0(Accuracy, "%")),
+            hjust = -0.1, fontface = "bold") +
+  coord_flip() +
+  labs(title    = "Comparación de Accuracy – Modelos de Clasificación",
+       subtitle = "Mayor Accuracy = mejor clasificación",
+       x = NULL, y = "Accuracy (%)") +
+  ylim(0, 100) +
+  theme_minimal()
+
+# Gráfico de Kappa
+ggplot(comparacion_clas,
+       aes(x = reorder(Modelo, Kappa), y = Kappa, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = Kappa), hjust = -0.1, fontface = "bold") +
+  coord_flip() +
+  labs(title    = "Comparación de Kappa – Modelos de Clasificación",
+       subtitle = "Mayor Kappa = mejor concordancia más allá del azar",
+       x = NULL, y = "Kappa") +
+  ylim(0, 1) +
+  theme_minimal()
+```
+Los gráficos muestran un ranking muy claro entre los cuatro modelos de clasificación evaluados. Random Forest es el ganador indiscutible con un Accuracy de 84.46% y un Kappa de 0.7664, lo que indica una concordancia sustancial con la realidad y una capacidad de clasificación muy superior al resto. Esto tiene sentido ya que Random Forest combina cientos de árboles de decisión y promedia sus resultados, lo que le permite capturar relaciones complejas entre las variables que ningún modelo individual puede detectar por sí solo. En segundo lugar queda el Árbol de Decisión con 69.24% de Accuracy y Kappa de 0.538, un resultado sólido considerando su simplicidad, que supera cómodamente a KNN en este problema. KNN con k=220 queda en tercer lugar con 59.37% y Kappa de 0.3904, un desempeño moderado que refleja las limitaciones del algoritmo al trabajar con un dataset grande y variables que no logran separar completamente las tres categorías de precio. Finalmente, Naive Bayes es claramente el peor clasificador con apenas 42.26% de Accuracy y Kappa de 0.1184, prácticamente rozando el nivel del azar. En conclusión, para los objetivos de SmartStay Advisors el modelo recomendado para clasificar propiedades en los segmentos barata, media y cara es Random Forest, ya que supera a todos los demás por un margen considerable tanto en Accuracy como en Kappa.
