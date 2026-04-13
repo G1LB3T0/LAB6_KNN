@@ -121,7 +121,7 @@ rmse_knn <- RMSE(pred_knn, test_modelo$price)
 mae_knn  <- MAE(pred_knn,  test_modelo$price)
 r2_knn   <- cor(pred_knn,  test_modelo$price)^2
 
-cat("===== MÉTRICAS – KNN Regresión =====\n")
+cat("===== MÉTRICAS - KNN Regresión =====\n")
 cat(sprintf("RMSE : $%.2f\n", rmse_knn))
 cat(sprintf("MAE  : $%.2f\n", mae_knn))
 cat(sprintf("R²   :  %.4f\n", r2_knn))
@@ -229,7 +229,7 @@ ggplot(comparacion_reg,
   geom_text(aes(label = paste0("$", RMSE)), 
             hjust = -0.1, fontface = "bold") +
   coord_flip() +
-  labs(title    = "Comparación de RMSE – Modelos de Regresión",
+  labs(title    = "Comparación de RMSE - Modelos de Regresión",
        subtitle = "Menor RMSE = mejor predicción del precio",
        x = NULL, y = "RMSE (USD)") +
   theme_minimal()
@@ -299,7 +299,7 @@ pred_knn_clas <- predict(modelo_knn_clas, newdata = test_clas)
 
 
 accuracy_clas <- mean(pred_knn_clas == test_clas$categoria)
-cat("===== MÉTRICAS – KNN Clasificación (k=220) =====\n")
+cat("===== MÉTRICAS - KNN Clasificación (k=220) =====\n")
 cat(sprintf("Accuracy : %.4f (%.2f%%)\n", accuracy_clas, accuracy_clas * 100))
 
 
@@ -321,7 +321,7 @@ as.data.frame(cm$table) %>%
   geom_tile(color = "white") +
   geom_text(aes(label = Freq), fontface = "bold", size = 6) +
   scale_fill_gradient(low = "#E3F2FD", high = "#1565C0") +
-  labs(title    = "Matriz de Confusión – KNN Clasificación",
+  labs(title    = "Matriz de Confusión - KNN Clasificación",
        subtitle = "Filas = predicción | Columnas = valor real",
        x = "Categoría real", y = "Categoría predicha") +
   theme_minimal()
@@ -353,7 +353,7 @@ ggplot(errores_knn, aes(x = Clase, y = Tasa_error, fill = Clase)) +
   scale_fill_manual(values = c("Barata" = "#4CAF50",
                                "Cara"   = "#FF9800",
                                "Media"  = "#F44336")) +
-  labs(title = "Tasa de error por categoría – KNN Clasificación",
+  labs(title = "Tasa de error por categoría - KNN Clasificación",
        x = "Categoría", y = "% de errores") +
   theme_minimal()
 ```
@@ -386,10 +386,195 @@ ggplot(comparacion_ov, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
             vjust = -0.5, fontface = "bold", size = 5) +
   scale_fill_manual(values = c("Entrenamiento" = "#2196F3",
                                "Prueba"        = "#FF9800")) +
-  labs(title    = "Accuracy – Entrenamiento vs Prueba",
+  labs(title    = "Accuracy - Entrenamiento vs Prueba",
        subtitle = "KNN Clasificación",
        x = NULL, y = "Accuracy (%)") +
   ylim(0, 100) +
   theme_minimal()
 ```
 El análisis de sobreajuste muestra un resultado muy claro y es que el modelo no está sobreajustado. El Accuracy en entrenamiento es de 59.18% y en prueba de 59.37%, una diferencia de apenas 0.19 puntos porcentuales que es prácticamente insignificante. En un modelo sobreajustado se esperaría ver un Accuracy muy alto en entrenamiento, por ejemplo 90% o más, y uno considerablemente menor en prueba, porque el modelo habría memorizado los datos de entrenamiento sin aprender a generalizar. Aquí ocurre exactamente lo contrario ya que ambos valores son casi idénticos y además el conjunto de prueba tiene un Accuracy ligeramente mayor que el de entrenamiento, lo cual es una señal de que el modelo generaliza de forma estable y consistente. Esto tiene sentido considerando que se usó k=220 vecinos, un valor bastante alto que obliga al modelo a promediar muchas observaciones antes de tomar una decisión, lo que actúa como un regularizador natural que evita que el modelo se ajuste demasiado a los datos de entrenamiento. Lo que sí se puede observar es que el rendimiento general de 59% en ambos conjuntos es modesto, lo que sugiere que el modelo no está sobreajustado sino que simplemente tiene una capacidad limitada para separar las tres categorías de precio con las variables disponibles.
+
+
+# Actividad 8 - Modelo con Validación Cruzada
+
+```{r}
+set.seed(123)
+
+control_cv <- trainControl(
+  method  = "cv",
+  number  = 10,
+  verboseIter = FALSE
+)
+
+
+modelo_knn_cv <- train(
+  price ~ .,
+  data       = train_modelo,
+  method     = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid   = expand.grid(k = k_vecinos),
+  trControl  = control_cv
+)
+
+print(modelo_knn_cv)
+```
+
+```{r}
+pred_knn_cv <- predict(modelo_knn_cv, newdata = test_modelo)
+
+rmse_cv <- RMSE(pred_knn_cv, test_modelo$price)
+mae_cv  <- MAE(pred_knn_cv,  test_modelo$price)
+r2_cv   <- cor(pred_knn_cv,  test_modelo$price)^2
+
+cat("MÉTRICAS KNN Regresión con CV (k=220)\n")
+cat(sprintf("RMSE : $%.2f\n", rmse_cv))
+cat(sprintf("MAE  : $%.2f\n", mae_cv))
+cat(sprintf("R²   :  %.4f\n", r2_cv))
+```
+
+```{r}
+comparacion_cv_reg <- data.frame(
+  Modelo = c("KNN sin CV (k=220)", "KNN con CV 10-fold (k=220)"),
+  RMSE   = round(c(rmse_knn, rmse_cv), 2),
+  MAE    = round(c(mae_knn,  mae_cv),  2),
+  R2     = round(c(r2_knn,   r2_cv),   4)
+)
+
+print(comparacion_cv_reg)
+
+ggplot(comparacion_cv_reg, aes(x = Modelo, y = RMSE, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.5) +
+  geom_text(aes(label = paste0("$", RMSE)),
+            vjust = -0.5, fontface = "bold", size = 4.5) +
+  scale_fill_manual(values = c("#1976D2", "#FF7043")) +
+  labs(title    = "RMSE - KNN Regresión: sin CV vs con CV",
+       subtitle = "Mismo k=220, mismo conjunto de prueba",
+       x = NULL, y = "RMSE (USD)") +
+  ylim(0, max(comparacion_cv_reg$RMSE) * 1.2) +
+  theme_minimal()
+```
+Ambos modelos obtienen exactamente el mismo RMSE de $130.89 sobre el conjunto de prueba, sin ninguna diferencia entre usar o no validación cruzada. Esto indica que con un dataset de más de 48,000 observaciones, la partición 80/20 ya es suficientemente estable para estimar el error de generalización, y la rotación de folds no aporta información adicional que mejore la predicción del precio. En términos prácticos, la validación cruzada no funcionó mejor que el modelo simple para este problema de regresión.
+
+## Clasificación KNN con validación cruzada 
+
+```{r}
+set.seed(123)
+
+modelo_knn_cv_clas <- train(
+  categoria ~ .,
+  data       = train_clas,
+  method     = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid   = expand.grid(k = k_clas),
+  trControl  = control_cv
+)
+
+print(modelo_knn_cv_clas)
+```
+
+```{r}
+pred_knn_cv_clas <- predict(modelo_knn_cv_clas, newdata = test_clas)
+
+cm_cv <- confusionMatrix(pred_knn_cv_clas, test_clas$categoria)
+print(cm_cv)
+
+acc_cv_clas   <- round(cm_cv$overall["Accuracy"] * 100, 2)
+kappa_cv_clas <- round(cm_cv$overall["Kappa"], 4)
+
+cat(sprintf("\nAccuracy CV : %.2f%%\n", acc_cv_clas))
+cat(sprintf("Kappa    CV : %.4f\n",    kappa_cv_clas))
+```
+
+```{r}
+comparacion_cv_clas <- data.frame(
+  Modelo   = c("KNN sin CV (k=220)", "KNN con CV 10-fold (k=220)"),
+  Accuracy = c(acc_test, acc_cv_clas),
+  Kappa    = c(kappa_test, kappa_cv_clas)
+)
+
+print(comparacion_cv_clas)
+
+ggplot(comparacion_cv_clas, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.5) +
+  geom_text(aes(label = paste0(Accuracy, "%")),
+            vjust = -0.5, fontface = "bold", size = 5) +
+  scale_fill_manual(values = c("#388E3C", "#7B1FA2")) +
+  labs(title    = "Accuracy - KNN Clasificación: sin CV vs con CV",
+       subtitle = "Mismo k=220, mismo conjunto de prueba",
+       x = NULL, y = "Accuracy (%)") +
+  ylim(0, 100) +
+  theme_minimal()
+```
+La diferencia de accuracy entre ambos modelos es de apenas 0.01 puntos porcentuales. Al igual que en regresión, el tamaño del dataset hace que ambas estrategias converjan al mismo resultado. Ninguno de los dos modelos supera al otro, y la limitación real no está en el método de validación sino en la capacidad del algoritmo para separar las tres categorías de precio con las variables disponibles, especialmente la clase media que continúa siendo la más difícil de clasificar correctamente en ambos casos.
+
+# Actividad 9 - Tuneo de Hiperparámetros KNN
+
+```{r}
+set.seed(123)
+
+k_valores <- expand.grid(k = c(5, 10, 25, 50, 100, 150, 220, 300, 400, 500))
+
+control_cv <- trainControl(
+  method  = "cv",
+  number  = 10,
+  verboseIter = FALSE
+)
+
+modelo_knn_tuneo_reg <- train(
+  price ~ .,
+  data       = train_modelo,
+  method     = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid   = k_valores,
+  trControl  = control_cv
+)
+
+print(modelo_knn_tuneo_reg)
+plot(modelo_knn_tuneo_reg,
+     main = "Tuneo de k (RMSE por valor de k)")
+```
+La curva de tuneo muestra con claridad que el valor de k tiene un impacto directo en el rendimiento del modelo de regresión. Con valores pequeños de k, el RMSE es considerablemente más alto, superando los $136, lo que indica que el modelo es demasiado sensible al ruido local y no generaliza bien. A medida que k aumenta, el RMSE desciende rápidamente hasta estabilizarse.
+
+El punto óptimo identificado por el tuneo fue k=100, que representa el balance ideal entre varianza y sesgo para este dataset.
+
+```{r}
+mejor_k_reg <- modelo_knn_tuneo_reg$bestTune$k
+cat("Mejor k para regresión:", mejor_k_reg, "\n")
+
+pred_tuneo_reg <- predict(modelo_knn_tuneo_reg, newdata = test_modelo)
+
+rmse_tuneo_reg <- RMSE(pred_tuneo_reg, test_modelo$price)
+mae_tuneo_reg  <- MAE(pred_tuneo_reg,  test_modelo$price)
+r2_tuneo_reg   <- cor(pred_tuneo_reg,  test_modelo$price)^2
+
+cat("MÉTRICAS - KNN Regresión Tuneado\n")
+cat(sprintf("Mejor k : %d\n",   mejor_k_reg))
+cat(sprintf("RMSE    : $%.2f\n", rmse_tuneo_reg))
+cat(sprintf("MAE     : $%.2f\n", mae_tuneo_reg))
+cat(sprintf("R²      :  %.4f\n", r2_tuneo_reg))
+```
+
+```{r}
+comparacion_tuneo_reg <- data.frame(
+  Modelo = c("KNN original (k=220)", 
+             "KNN con CV (k=220)",
+             paste0("KNN tuneado (k=", mejor_k_reg, ")")),
+  RMSE   = round(c(rmse_knn, rmse_cv, rmse_tuneo_reg), 2),
+  MAE    = round(c(mae_knn,  mae_cv,  mae_tuneo_reg),  2),
+  R2     = round(c(r2_knn,   r2_cv,   r2_tuneo_reg),   4)
+)
+
+print(comparacion_tuneo_reg)
+
+ggplot(comparacion_tuneo_reg,
+       aes(x = reorder(Modelo, RMSE), y = RMSE, fill = Modelo)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = paste0("$", RMSE)),
+            hjust = -0.1, fontface = "bold") +
+  coord_flip() +
+  labs(title    = "RMSE - KNN Regresión: original vs CV vs tuneado",
+       subtitle = "Menor RMSE = mejor predicción del precio",
+       x = NULL, y = "RMSE (USD)") +
+  theme_minimal()
+```
+El tuneo de hiperparámetros sí logró una mejora, aunque modesta. El modelo tuneado con k=100 obtiene un RMSE de 130.46, ligeramente inferior al 130.89 de los modelos original y con validación cruazada. 
